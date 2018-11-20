@@ -433,7 +433,7 @@ function Get-StoreBrokerConfigFileContentForIapId
     }
 }
 
-function Convert-AppConfig
+function Get-Config
 {
 <#
     .SYNOPSIS
@@ -490,7 +490,7 @@ function Convert-AppConfig
 
     # Convert the input config into an object
     $configObj = Get-Content -Path $ConfigPath -Encoding UTF8 |
-        Remove-Comment |
+        Remove-Comments |
         Out-String |
         ConvertFrom-Json
 
@@ -570,7 +570,7 @@ filter Remove-Comments
         System.Object[]  The filtered collection of lines
 
     .EXAMPLE
-        "example", "test // input", "// remove this" | Remove-Comment
+        "example", "test // input", "// remove this" | Remove-Comments
 
         "example", "test "
 #>
