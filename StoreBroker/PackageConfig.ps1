@@ -3,19 +3,19 @@
 
 # Define Script-scoped, readonly, hidden variables.
 @{
-    # Default file name of the AppConfig in the module folder
-    defaultConfigFileName = "AppConfigTemplate.json"
-    defaultIapConfigFileName = "IapConfigTemplate.json"
+    # Default file name of the AppConfig and IapConfig in the module folder
+    defaultConfigFileName = "AppConfigTemplate.ps1"
+    defaultIapConfigFileName = "IapConfigTemplate.ps1"
 
     # Schema version property in the AppConfig and IapConfig
     configSchemaVersionProperty = "schemaVersion"
 
     # Minimum supported schema version for AppConfig and IapConfig.
     minAppConfigSchemaVersion = 1
-    minIapConfigSchemaVersion = 2
+    minIapConfigSchemaVersion = 1
 
     # Maximum supported schema version for AppConfig and IapConfig.
-    maxAppConfigSchemaVersion = 1
+    maxAppConfigSchemaVersion = 2
     maxIapConfigSchemaVersion = 2
 
     # Note that we are intentionally using backslash, '\', for the uri instead of
@@ -971,24 +971,12 @@ function Get-OrderedConfigTemplate
 <#
     .DESCRIPTION
         A helper function to enabling writing a JSON object with a guaranteed property order.
-        The goal of this function is to take one of the config templates and return an object
-        by which the ordering of config properties can be retrieved.
-
-        General hashtables are easily convertible to PSCustomObject types, but when the custom object
-        is converted to JSON, the ordering is not guaranteed. In the case that the custom object
-        is backed by an [ordered] hashtable, then the ordering of the JSON IS guaranteed.
-        Therefore, this function converts the config template's JSON into an ordered dictionary.
-            1. Any JSON object should be converted to an ordered dictionary.
-            2. Arrays should remain arrays.
-            3. Value types should be converted to their PowerShell equivalent.
-
-        The function uses sting replacement on the config's text in order to do the conversion,
-        and then uses Invoke-Expression to get the result as an object.
+        The config templates contain an [ordered] dictionary representing the config. This
+        function simply dot-sources the appropriate template and returns that dictionary.
 
     .PARAMETER Type
         The type of config to be converted.
 #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingInvokeExpression", "", Justification="This is the best method available for guaranteeing ordering of an object's properties.")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -999,39 +987,8 @@ function Get-OrderedConfigTemplate
     $configFile = if ($Type -eq 'App') { $script:defaultConfigFileName }
                   else { $script:defaultIapConfigFileName }
     $configPath = Join-Path -Path $PSScriptRoot -ChildPath $configFile
-    $contents = Get-Content -Path $configPath -Encoding utf8 | Out-String
 
-    Write-Log -Message "Getting ordered config template for config: [$configPath]." -Level Verbose
-
-    # Replace assignment operator.
-    # Colon appears in some other places, like uris (https:), so
-    # we need to be a little more selective about what we replace.
-    $contents = $contents -replace '":', '"='
-
-    # Replace null, true, and false values.
-    $contents = $contents `
-        -replace 'null', '$null' `
-        -replace 'true', '$true' `
-        -replace 'false', '$false'
-
-    # Replace commas with semi-colons.
-    # JSON commas have two uses:
-    #     1. Separate properties
-    #     2. Separate elements in an array
-    # Because we are converting properties to key-value pairs in a dictionary,
-    # it is valid PowerShell to separate the KV pairs with semi-colons.
-    # Semi-colons are also a valid separator for elements in an array.
-    # Therefore, directly replacing commas covers both cases.
-    $contents = $contents -replace ',', ';'
-
-    # Convert arrays.
-    $contents = $contents -replace '\[', '@(' -replace '\]', ')'
-
-    # Convert objects to ordered dictionaries.
-    $contents = $contents -replace '{', '[ordered]@{'
-
-    # The contents should now be a valid ordered dictionary.
-    return Invoke-Expression -Command $contents
+    return . $configPath
 }
 
 filter ConvertTo-OrderedJson
